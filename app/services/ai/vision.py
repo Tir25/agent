@@ -82,9 +82,20 @@ class VisionTool(BaseTool):
         """
         # Lazy import to avoid loading ollama if not used
         import ollama
+        import base64
+        from pathlib import Path
         
         # Get optional parameters
         temperature = kwargs.get("temperature", 0.7)
+        
+        # Read image file and encode as base64
+        # Ollama requires base64 encoded images
+        image_file = Path(image_path)
+        if not image_file.exists():
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+        
+        with open(image_file, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
         
         # Call Ollama with the vision model
         response = ollama.chat(
@@ -93,7 +104,7 @@ class VisionTool(BaseTool):
                 {
                     "role": "user",
                     "content": query,
-                    "images": [image_path]
+                    "images": [image_data]
                 }
             ],
             options={
