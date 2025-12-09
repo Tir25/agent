@@ -2,26 +2,48 @@
 """
 The Sovereign Desktop - Main Entry Point
 
+This is the ONLY file you run. It bootstraps the Registry, Router,
+and Voice services and enters the interaction loop.
+
 Usage:
-    python main.py              # Start with default settings
+    python main.py              # Start in text mode
     python main.py --voice      # Start with voice mode
     python main.py --debug      # Start with debug logging
-    python main.py --config PATH  # Use custom config file
+
+Your AI, Your Machine, Your Rules.
 """
 
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+# =============================================================================
+# IMPORTS - All from our modular architecture
+# =============================================================================
 
-from core import LLMEngine, SemanticRouter, ContextManager
-from actuators import WindowsController, AudioController
-from perception import VisionProcessor, OCREngine
-from interfaces import VoiceLoop, VoiceLoopConfig
-from utils import setup_logging, load_config, get_logger
+# Core infrastructure
+from app.core.registry import ToolRegistry
+from app.core.router import SemanticRouter
+from app.utils.result import CommandResult
 
+# System control tools
+from app.services.system.volume import VolumeTool
+from app.services.system.brightness import BrightnessTool
+from app.services.system.launcher import AppLauncherTool
+
+# Office tools
+from app.services.office.word import WordWriterTool
+from app.services.office.excel import ExcelReaderTool
+
+# Voice I/O
+from app.services.voice.speaker import TextToSpeech
+from app.services.voice.listener import VoiceListener
+
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -31,16 +53,9 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
     python main.py                    # Start in text mode
-    python main.py --voice            # Start with voice interaction
+    python main.py --voice            # Start with voice interaction  
     python main.py --debug --voice    # Voice mode with debug logging
         """,
-    )
-    
-    parser.add_argument(
-        "--config", "-c",
-        type=Path,
-        default=Path("config.yaml"),
-        help="Path to configuration file",
     )
     
     parser.add_argument(
@@ -55,186 +70,175 @@ Examples:
         help="Enable debug logging",
     )
     
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run without any UI (server mode)",
-    )
-    
     return parser.parse_args()
 
 
-class SovereignDesktop:
+# =============================================================================
+# THE SOVEREIGN DESKTOP AGENT
+# =============================================================================
+
+class SovereignAgent:
     """
-    Main application class for The Sovereign Desktop.
+    The Sovereign Desktop Agent.
     
-    Orchestrates all components and provides the main interaction loop.
+    Orchestrates all components:
+    - ToolRegistry: Central place for all tools
+    - SemanticRouter: LLM-based intent classification
+    - VoiceListener: Speech-to-text (ears)
+    - TextToSpeech: Text-to-speech (mouth)
     """
     
-    def __init__(self, config_path: Path = None, debug: bool = False):
+    def __init__(self, debug: bool = False):
         """
-        Initialize The Sovereign Desktop.
+        Initialize The Sovereign Desktop Agent.
         
         Args:
-            config_path: Path to config file
-            debug: Enable debug mode
+            debug: Enable debug mode with verbose logging.
         """
-        # Load configuration
-        self.config = load_config(config_path)
-        if debug:
-            self.config.debug = True
-            self.config.logging.level = "DEBUG"
+        self.debug = debug
         
-        # Setup logging
-        setup_logging(
-            level=self.config.logging.level,
-            log_file=self.config.logging.file,
-            max_size_mb=self.config.logging.max_size_mb,
-        )
+        # Initialize components
+        self._init_registry()
+        self._init_router()
+        self._init_voice()
         
-        self.logger = get_logger(__name__)
-        self.logger.info("=" * 60)
-        self.logger.info("  The Sovereign Desktop")
-        self.logger.info("  Your AI, Your Machine, Your Rules.")
-        self.logger.info("=" * 60)
-        
-        # Initialize core components
-        self._init_core()
-        
-        # Initialize peripherals
-        self._init_peripherals()
+        print("\n" + "=" * 60)
+        print("  🏛️  THE SOVEREIGN DESKTOP")
+        print("  Your AI, Your Machine, Your Rules.")
+        print("=" * 60)
+        print(f"\n  Tools Registered: {len(self.registry)}")
+        print(f"  Router Model: {self.router.model}")
+        print()
     
-    def _init_core(self):
-        """Initialize core components."""
-        self.logger.info("Initializing core components...")
+    def _init_registry(self):
+        """Initialize and populate the tool registry."""
+        self.registry = ToolRegistry()
         
-        # LLM Engine
-        self.llm = LLMEngine(
-            model=self.config.llm.model,
-            host=self.config.llm.host,
-            temperature=self.config.llm.temperature,
-            context_length=self.config.llm.context_length,
-        )
+        # Register System Control tools
+        self.registry.register_tool(VolumeTool())
+        self.registry.register_tool(BrightnessTool())
+        self.registry.register_tool(AppLauncherTool())
         
-        # Context Manager
-        data_dir = Path(self.config.data_dir)
-        self.context = ContextManager(
-            persistence_path=data_dir / "context.db",
-        )
+        # Register Office tools
+        self.registry.register_tool(WordWriterTool())
+        self.registry.register_tool(ExcelReaderTool())
         
-        # Semantic Router
-        self.router = SemanticRouter(llm_engine=self.llm)
-        
-        # Register tools
-        self._register_tools()
+        if self.debug:
+            print("[DEBUG] Registry initialized:")
+            print(self.registry.list_tools())
     
-    def _init_peripherals(self):
-        """Initialize peripheral components."""
-        self.logger.info("Initializing peripherals...")
+    def _init_router(self):
+        """Initialize the semantic router."""
+        self.router = SemanticRouter(self.registry)
         
-        # Windows Controller
-        try:
-            self.windows = WindowsController()
-        except Exception as e:
-            self.logger.warning(f"Windows controller unavailable: {e}")
-            self.windows = None
-        
-        # Audio Controller
-        try:
-            self.audio = AudioController()
-        except Exception as e:
-            self.logger.warning(f"Audio controller unavailable: {e}")
-            self.audio = None
-        
-        # Vision Processor
-        try:
-            self.vision = VisionProcessor(
-                max_resolution=self.config.vision.max_resolution,
-            )
-        except Exception as e:
-            self.logger.warning(f"Vision processor unavailable: {e}")
-            self.vision = None
-        
-        # OCR Engine
-        if self.config.vision.ocr_enabled:
-            try:
-                self.ocr = OCREngine(backend=self.config.vision.ocr_backend)
-            except Exception as e:
-                self.logger.warning(f"OCR engine unavailable: {e}")
-                self.ocr = None
-        else:
-            self.ocr = None
+        if self.debug:
+            print(f"[DEBUG] Router initialized with model: {self.router.model}")
     
-    def _register_tools(self):
-        """Register tools with the semantic router."""
-        from core.semantic_router import IntentCategory
+    def _init_voice(self):
+        """Initialize voice I/O components."""
+        self.mouth = TextToSpeech(rate=150)
+        self.ears = VoiceListener()
         
-        # System control tools
-        if self.windows:
-            self.router.register_tool(
-                name="open_application",
-                description="Open/launch an application",
-                handler=lambda app: self.windows.launch_application(app),
-                category=IntentCategory.SYSTEM_CONTROL,
-            )
-            
-            self.router.register_tool(
-                name="type_text",
-                description="Type text using keyboard",
-                handler=lambda text: self.windows.type_text(text),
-                category=IntentCategory.SYSTEM_CONTROL,
-            )
-        
-        # Audio tools
-        if self.audio:
-            self.router.register_tool(
-                name="set_volume",
-                description="Set system volume",
-                handler=lambda level: self.audio.set_volume(float(level)),
-                category=IntentCategory.MEDIA_CONTROL,
-            )
-            
-            self.router.register_tool(
-                name="play_pause",
-                description="Toggle media playback",
-                handler=lambda: self.audio.media_play_pause(),
-                category=IntentCategory.MEDIA_CONTROL,
-            )
+        if self.debug:
+            print(f"[DEBUG] Voice components initialized")
+            print(f"[DEBUG] TTS voices available: {len(self.mouth.get_voices())}")
     
-    def process_command(self, text: str) -> str:
+    def speak(self, text: str):
+        """Speak text aloud."""
+        if self.debug:
+            print(f"[SPEAK] {text}")
+        self.mouth.speak(text)
+    
+    def process_command(self, user_query: str) -> str:
         """
-        Process a command and return the response.
+        Process a user command through the full pipeline.
+        
+        1. Route the query (LLM classification)
+        2. Execute the matched tool
+        3. Return the response
         
         Args:
-            text: User command/query
+            user_query: Natural language command from user.
             
         Returns:
-            Response text
+            Response string for the user.
         """
-        # Add to context
-        self.context.add_message("user", text)
+        if self.debug:
+            print(f"\n[DEBUG] Processing: '{user_query}'")
         
-        try:
-            # Parse and execute
-            response = self.router.execute(text, context={
-                "messages": self.context.get_messages_for_llm(limit=10),
-                "screen": self.context.get_screen_context(),
-            })
-            
-            # Add response to context
-            self.context.add_message("assistant", str(response))
-            
-            return str(response)
-            
-        except Exception as e:
-            self.logger.error(f"Command processing error: {e}")
-            return f"I encountered an error: {e}"
+        # Step 1: Route the command
+        decision = self.router.route(user_query)
+        
+        tool_name = decision.get("tool_name")
+        parameters = decision.get("parameters", {})
+        
+        if self.debug:
+            print(f"[DEBUG] Routed to: {tool_name}")
+            print(f"[DEBUG] Parameters: {parameters}")
+        
+        # Step 2: Handle routing errors
+        if "error" in decision:
+            return f"I had trouble understanding that: {decision['error']}"
+        
+        # Step 3: Handle general chat (no tool needed)
+        if tool_name == "general_chat":
+            return self._handle_chat(user_query)
+        
+        # Step 4: Execute the tool
+        tool = self.registry.get_tool(tool_name)
+        
+        if tool is None:
+            return f"I don't have a tool called '{tool_name}'"
+        
+        result: CommandResult = tool.execute(**parameters)
+        
+        # Step 5: Format the response
+        if result.success:
+            return self._format_success(tool_name, result.data)
+        else:
+            return f"Sorry, that didn't work: {result.error}"
+    
+    def _handle_chat(self, query: str) -> str:
+        """Handle general chat (non-tool) queries."""
+        # For now, return a simple response
+        # In the future, this would call the LLM for a conversational response
+        return "I'm your desktop assistant. I can control volume, brightness, launch apps, and work with Office documents. How can I help?"
+    
+    def _format_success(self, tool_name: str, data: dict) -> str:
+        """Format a success response for the user."""
+        if tool_name == "set_volume":
+            if "volume" in data:
+                return f"Volume set to {data['volume']}%"
+            elif "muted" in data:
+                return "Audio muted" if data["muted"] else "Audio unmuted"
+        
+        elif tool_name == "set_brightness":
+            if "brightness" in data:
+                return f"Brightness set to {data['brightness']}%"
+        
+        elif tool_name == "launch_app":
+            return f"Launched {data.get('app', 'the application')}"
+        
+        elif tool_name == "write_word_doc":
+            if data.get("saved"):
+                return f"Created Word document: {data.get('filename', 'document')}"
+            else:
+                return "Created Word document. Use File > Save to save it."
+        
+        elif tool_name == "read_excel":
+            rows = data.get("rows", 0)
+            cols = data.get("cols", 0)
+            return f"Read {rows} rows and {cols} columns from Excel"
+        
+        return f"Done: {data}"
+    
+    # =========================================================================
+    # INTERACTION MODES
+    # =========================================================================
     
     def run_text_mode(self):
         """Run in text interaction mode."""
-        self.logger.info("Starting text mode. Type 'quit' to exit.")
-        print("\n🏛️ The Sovereign Desktop")
-        print("Type your commands below. Type 'quit' to exit.\n")
+        print("📝 Text Mode - Type your commands. Type 'quit' to exit.\n")
         
         while True:
             try:
@@ -243,7 +247,7 @@ class SovereignDesktop:
                 if not user_input:
                     continue
                 
-                if user_input.lower() in ("quit", "exit", "bye"):
+                if user_input.lower() in ("quit", "exit", "bye", "q"):
                     print("Goodbye!")
                     break
                 
@@ -254,83 +258,68 @@ class SovereignDesktop:
                 print("\nGoodbye!")
                 break
             except Exception as e:
-                self.logger.error(f"Error: {e}")
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
                 print(f"Error: {e}")
     
     def run_voice_mode(self):
         """Run in voice interaction mode."""
-        self.logger.info("Starting voice mode...")
+        print("🎤 Voice Mode - Speak your commands. Press Ctrl+C to exit.\n")
         
-        voice_config = VoiceLoopConfig(
-            stt_engine=self.config.voice.stt_engine,
-            stt_model=self.config.voice.stt_model,
-            tts_engine=self.config.voice.tts_engine,
-            tts_voice=self.config.voice.tts_voice,
-            wake_word=self.config.voice.wake_word,
-            push_to_talk_key=self.config.voice.push_to_talk_key,
-            language=self.config.voice.language,
-        )
+        # Initialize the listener
+        if not self.ears.initialize():
+            print("❌ Failed to initialize voice listener.")
+            print("   Make sure you have a microphone and the Vosk model installed.")
+            return
         
-        voice_loop = VoiceLoop(
-            config=voice_config,
-            command_handler=self.process_command,
-        )
-        
-        # Set up callbacks
-        voice_loop.on_transcription(lambda t: print(f"You: {t}"))
-        voice_loop.on_response(lambda r: print(f"AI: {r}"))
-        
-        print("\n🏛️ The Sovereign Desktop - Voice Mode")
-        print(f"Press {voice_config.push_to_talk_key} to speak. Ctrl+C to exit.\n")
+        self.speak("Sovereign Desktop is ready. How can I help you?")
         
         try:
-            with voice_loop:
-                # Keep running until interrupted
-                while True:
-                    pass
+            while True:
+                # Listen for user speech
+                print("Listening...", end="\r")
+                user_text = self.ears.listen(timeout_chunks=50)
+                
+                if not user_text:
+                    continue
+                
+                print(f"You: {user_text}")
+                
+                # Check for exit commands
+                if user_text.lower() in ("quit", "exit", "goodbye", "stop"):
+                    self.speak("Goodbye!")
+                    break
+                
+                # Process and respond
+                response = self.process_command(user_text)
+                print(f"AI: {response}")
+                self.speak(response)
+                
         except KeyboardInterrupt:
-            print("\nGoodbye!")
-    
-    def check_dependencies(self) -> bool:
-        """Check if all required components are available."""
-        issues = []
-        
-        # Check Ollama
-        if not self.llm.is_available():
-            issues.append(f"Ollama not running or model '{self.config.llm.model}' not available")
-        
-        # Report issues
-        if issues:
-            self.logger.warning("Dependency issues found:")
-            for issue in issues:
-                self.logger.warning(f"  - {issue}")
-            return False
-        
-        return True
+            print("\n")
+            self.speak("Goodbye!")
+        finally:
+            self.ears.close()
 
+
+# =============================================================================
+# MAIN ENTRY POINT
+# =============================================================================
 
 def main():
     """Main entry point."""
     args = parse_args()
     
     try:
-        # Initialize the application
-        app = SovereignDesktop(
-            config_path=args.config,
-            debug=args.debug,
-        )
-        
-        # Check dependencies
-        if not app.check_dependencies():
-            print("\n⚠️ Some dependencies are not available.")
-            print("The agent may have limited functionality.")
-            print("Make sure Ollama is running with the required model.\n")
+        # Initialize the agent
+        agent = SovereignAgent(debug=args.debug)
         
         # Run in appropriate mode
         if args.voice:
-            app.run_voice_mode()
+            agent.run_voice_mode()
         else:
-            app.run_text_mode()
+            agent.run_text_mode()
             
     except KeyboardInterrupt:
         print("\nGoodbye!")
