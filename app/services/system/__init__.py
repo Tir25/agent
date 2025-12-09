@@ -5,6 +5,7 @@ Single-responsibility tools for system control:
 - volume: Audio control (NEW - uses _run pattern)
 - brightness: Display brightness (NEW - uses _run pattern)
 - launcher: App launching (NEW - uses _run pattern)
+- screen_capture: Screenshot capture (NEW - uses _run pattern)
 
 Legacy tools (backwards compatibility):
 - volume_control: Legacy audio control
@@ -16,6 +17,7 @@ Legacy tools (backwards compatibility):
 from .volume import VolumeTool
 from .brightness import BrightnessTool
 from .launcher import AppLauncherTool
+from .screen_capture import ScreenCaptureTool
 
 # Legacy tools for backwards compatibility
 from .volume_control import VolumeControlTool
@@ -27,8 +29,10 @@ __all__ = [
     "VolumeTool",
     "BrightnessTool",
     "AppLauncherTool",
+    "ScreenCaptureTool",
     # Legacy (backwards compatibility)
     "VolumeControlTool",
     "BrightnessControlTool", 
     "ProcessManagerTool",
 ]
+
