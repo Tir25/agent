@@ -1,0 +1,81 @@
+# ============================================================================
+# The Sovereign Desktop - Python Dependencies
+# ============================================================================
+# Your AI, Your Machine, Your Rules.
+#
+# Install with: pip install -r requirements.txt
+# Or run: python install_dependencies.py
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Core AI
+# ----------------------------------------------------------------------------
+# LangChain ecosystem for LLM orchestration and tool calling
+langchain>=0.3.0
+langchain-ollama>=0.2.0
+# Numerical computing for embeddings and data processing
+numpy>=1.26.0
+
+# ----------------------------------------------------------------------------
+# Web Automation
+# ----------------------------------------------------------------------------
+# AI-powered browser automation
+browser-use>=0.1.0
+# Modern browser automation framework
+playwright>=1.40.0
+
+# ----------------------------------------------------------------------------
+# Windows Actuators
+# ----------------------------------------------------------------------------
+# Windows GUI automation (inspect, control windows/elements)
+pywinauto>=0.6.8
+# Windows API bindings (COM, Win32 API access)
+pywin32>=306
+# Windows Core Audio API (volume control, audio sessions)
+pycaw>=20230407
+# Monitor brightness control
+screen-brightness-control>=0.22.0
+# COM interface support (required by pycaw)
+comtypes>=1.2.0
+# System and process utilities
+psutil>=5.9.0
+# Window position and management
+pygetwindow>=0.0.9
+
+# ----------------------------------------------------------------------------
+# Voice / Interface
+# ----------------------------------------------------------------------------
+# Offline speech recognition (Kaldi-based)
+vosk>=0.3.45
+# Text-to-speech synthesis
+pyttsx3>=2.90
+# Audio I/O for voice capture
+pyaudio>=0.2.14
+
+# ----------------------------------------------------------------------------
+# Supporting Libraries
+# ----------------------------------------------------------------------------
+# HTTP client for Ollama API
+httpx>=0.25.0
+# YAML configuration parsing
+pyyaml>=6.0
+# Image processing for vision
+Pillow>=10.0.0
+# Screen capture
+mss>=9.0.0
+# Keyboard/mouse input simulation
+pyautogui>=0.9.54
+# Keyboard/mouse event listeners
+pynput>=1.7.6
+# Clipboard operations
+pyperclip>=1.8.2
+# Environment variable management
+python-dotenv>=1.0.0
+
+# ----------------------------------------------------------------------------
+# Development (optional)
+# ----------------------------------------------------------------------------
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# black>=23.0.0
+# ruff>=0.1.0

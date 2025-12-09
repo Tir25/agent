@@ -1,0 +1,38 @@
+# The Sovereign Desktop Configuration
+# Your AI, Your Machine, Your Rules.
+
+# LLM Settings (Ollama)
+llm:
+  model: "llama3.2-vision"
+  host: "http://localhost:11434"
+  temperature: 0.7
+  context_length: 8192
+
+# Voice Interaction
+voice:
+  stt_engine: "faster_whisper"  # faster_whisper, whisper, windows
+  stt_model: "base"  # tiny, base, small, medium, large
+  tts_engine: "sapi"  # sapi, piper, edge
+  tts_voice: null  # null for default
+  wake_word: null  # null to disable, or "hey sovereign"
+  push_to_talk_key: "ctrl+space"
+  language: "en"
+
+# Vision Processing
+vision:
+  capture_interval: 1.0  # seconds
+  max_resolution: [1920, 1080]
+  ocr_enabled: true
+  ocr_backend: "tesseract"  # tesseract, easyocr
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "logs/sovereign.log"
+  max_size_mb: 100
+  backup_count: 5
+
+# General
+debug: false
+data_dir: "data"
+plugins_dir: "plugins"
