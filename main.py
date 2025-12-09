@@ -41,6 +41,9 @@ from app.services.office.excel import ExcelReaderTool
 from app.services.system.screen_capture import ScreenCaptureTool
 from app.services.ai.vision import VisionTool
 
+# AI tools
+from app.services.ai.chat import ChatTool
+
 # Voice I/O
 from app.services.voice.speaker import TextToSpeech
 from app.services.voice.listener import VoiceListener
@@ -132,6 +135,9 @@ class SovereignAgent:
         self.registry.register_tool(ScreenCaptureTool())
         self.registry.register_tool(VisionTool())
         
+        # Register AI tools
+        self.registry.register_tool(ChatTool())
+        
         if self.debug:
             print("[DEBUG] Registry initialized:")
             print(self.registry.list_tools())
@@ -212,10 +218,26 @@ class SovereignAgent:
             return f"Sorry, that didn't work: {result.error}"
     
     def _handle_chat(self, query: str) -> str:
-        """Handle general chat (non-tool) queries."""
-        # For now, return a simple response
-        # In the future, this would call the LLM for a conversational response
-        return "I'm your desktop assistant. I can control volume, brightness, launch apps, analyze your screen, and work with Office documents. How can I help?"
+        """
+        Handle general chat queries using the ChatTool.
+        
+        Args:
+            query: The user's question or message.
+            
+        Returns:
+            LLM-generated response string.
+        """
+        chat_tool = self.registry.get_tool("general_chat")
+        
+        if chat_tool is None:
+            return "I'm your desktop assistant. I can control volume, brightness, launch apps, analyze your screen, and work with Office documents."
+        
+        result = chat_tool.execute(query=query)
+        
+        if result.success:
+            return result.data.get("response", "I'm not sure how to respond to that.")
+        else:
+            return "I'm having trouble thinking right now. Please try again."
     
     def _handle_visual_query(self, parameters: dict) -> str:
         """
