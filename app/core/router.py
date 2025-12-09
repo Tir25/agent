@@ -94,6 +94,11 @@ Given the user query, analyze their intent and output a JSON object with:
 - "tool_name": String that EXACTLY matches one of the available tool names above
 - "parameters": Dictionary of arguments for that tool
 
+SPECIAL INTENT - VISUAL QUERIES:
+If the user's request requires SEEING the screen or analyzing what's visible:
+- Examples: "what's on my screen?", "describe this", "read the error", "what do you see?", "look at my screen"
+- Output: {{"tool_name": "visual_query", "parameters": {{"query": "the user's question about the screen"}}}}
+
 If no tool matches the query (e.g., general questions, chitchat), use:
 - "tool_name": "general_chat"
 - "parameters": {{"message": "the user's message"}}
@@ -131,6 +136,8 @@ EXAMPLES:
 - "Open Chrome" → {{"tool_name": "launch_app", "parameters": {{"app_name": "chrome"}}}}
 - "Write hello world in Word" → {{"tool_name": "write_word_doc", "parameters": {{"text": "hello world"}}}}
 - "Read data.xlsx range A1:B10" → {{"tool_name": "read_excel", "parameters": {{"filename": "data.xlsx", "range": "A1:B10"}}}}
+- "What's on my screen?" → {{"tool_name": "visual_query", "parameters": {{"query": "Describe what you see on the screen"}}}}
+- "Read the error message" → {{"tool_name": "visual_query", "parameters": {{"query": "Read and explain any error messages visible"}}}}
 - "What's the weather?" → {{"tool_name": "general_chat", "parameters": {{"message": "What's the weather?"}}}}
 
 Output ONLY the JSON object, no explanations or markdown."""

@@ -14,6 +14,7 @@ Your AI, Your Machine, Your Rules.
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -35,6 +36,10 @@ from app.services.system.launcher import AppLauncherTool
 # Office tools
 from app.services.office.word import WordWriterTool
 from app.services.office.excel import ExcelReaderTool
+
+# Vision tools
+from app.services.system.screen_capture import ScreenCaptureTool
+from app.services.ai.vision import VisionTool
 
 # Voice I/O
 from app.services.voice.speaker import TextToSpeech
@@ -123,6 +128,10 @@ class SovereignAgent:
         self.registry.register_tool(WordWriterTool())
         self.registry.register_tool(ExcelReaderTool())
         
+        # Register Vision tools
+        self.registry.register_tool(ScreenCaptureTool())
+        self.registry.register_tool(VisionTool())
+        
         if self.debug:
             print("[DEBUG] Registry initialized:")
             print(self.registry.list_tools())
@@ -184,6 +193,10 @@ class SovereignAgent:
         if tool_name == "general_chat":
             return self._handle_chat(user_query)
         
+        # Step 3.5: Handle visual queries (screen analysis)
+        if tool_name == "visual_query":
+            return self._handle_visual_query(parameters)
+        
         # Step 4: Execute the tool
         tool = self.registry.get_tool(tool_name)
         
@@ -202,7 +215,68 @@ class SovereignAgent:
         """Handle general chat (non-tool) queries."""
         # For now, return a simple response
         # In the future, this would call the LLM for a conversational response
-        return "I'm your desktop assistant. I can control volume, brightness, launch apps, and work with Office documents. How can I help?"
+        return "I'm your desktop assistant. I can control volume, brightness, launch apps, analyze your screen, and work with Office documents. How can I help?"
+    
+    def _handle_visual_query(self, parameters: dict) -> str:
+        """
+        Handle visual queries (screen analysis).
+        
+        Two-step process:
+        1. Capture screenshot
+        2. Analyze with vision model
+        3. Cleanup temp file
+        
+        Args:
+            parameters: Dict with 'query' key containing the user's question.
+            
+        Returns:
+            Vision model's response string.
+        """
+        user_query = parameters.get("query", "Describe what you see on the screen.")
+        
+        if self.debug:
+            print("[DEBUG] Visual query - capturing screen...")
+        
+        # Step 1: Capture Screen
+        screen_tool = self.registry.get_tool("capture_screen")
+        if screen_tool is None:
+            return "Screen capture tool not available."
+        
+        screen_result = screen_tool.execute()
+        
+        if not screen_result.success:
+            return f"I couldn't capture the screen: {screen_result.error}"
+        
+        image_path = screen_result.data["path"]
+        
+        if self.debug:
+            print(f"[DEBUG] Screenshot saved: {image_path}")
+            print(f"[DEBUG] Analyzing with vision model...")
+        
+        # Step 2: Analyze Image
+        vision_tool = self.registry.get_tool("analyze_image")
+        if vision_tool is None:
+            return "Vision analysis tool not available."
+        
+        vision_result = vision_tool.execute(
+            image_path=image_path,
+            query=user_query
+        )
+        
+        # Step 3: Cleanup temp file
+        try:
+            os.remove(image_path)
+            if self.debug:
+                print(f"[DEBUG] Cleaned up temp file: {image_path}")
+        except Exception:
+            pass  # Ignore cleanup errors
+        
+        # Return result
+        if vision_result.success:
+            return vision_result.data["response"]
+        else:
+            return f"I couldn't analyze the image: {vision_result.error}"
+
     
     def _format_success(self, tool_name: str, data: dict) -> str:
         """Format a success response for the user."""
