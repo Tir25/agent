@@ -94,10 +94,12 @@ Given the user query, analyze their intent and output a JSON object with:
 - "tool_name": String that EXACTLY matches one of the available tool names above
 - "parameters": Dictionary of arguments for that tool
 
-SPECIAL INTENT - VISUAL QUERIES:
-If the user's request requires SEEING the screen or analyzing what's visible:
-- Examples: "what's on my screen?", "describe this", "read the error", "what do you see?", "look at my screen"
-- Output: {{"tool_name": "visual_query", "parameters": {{"query": "the user's question about the screen"}}}}
+CRITICAL - VISUAL/SCREEN QUERIES:
+For ANY request about seeing, viewing, analyzing, or describing the screen, images, or visual content:
+- ALWAYS use "visual_query" - NEVER use "analyze_image" or "capture_screen" directly
+- Examples: "what's on my screen?", "describe this", "read the error", "what do you see?", "analyze the image", "look at firefox"
+- Output: {{"tool_name": "visual_query", "parameters": {{"query": "the user's full question about what they want to know"}}}}
+- The visual_query handler will automatically capture the screen and analyze it
 
 If no tool matches the query (e.g., general questions, chitchat), use:
 - "tool_name": "general_chat"
