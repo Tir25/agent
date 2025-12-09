@@ -86,12 +86,12 @@ class BrowserTool(BaseTool):
         """
         try:
             # Lazy imports to avoid loading heavy libs if not used
-            from browser_use import Agent, Browser, BrowserConfig
-            from langchain_ollama import ChatOllama
+            # NOTE: browser-use has its own ChatOllama wrapper - do NOT use langchain_ollama
+            from browser_use import Agent, Browser, ChatOllama
         except ImportError as e:
             missing = str(e).split("'")[1] if "'" in str(e) else str(e)
             return {
-                "result": f"Missing dependency: {missing}. Please install with: pip install browser-use langchain-ollama",
+                "result": f"Missing dependency: {missing}. Please install with: pip install browser-use",
                 "task": task_description,
                 "error": str(e),
             }
@@ -99,14 +99,11 @@ class BrowserTool(BaseTool):
         async def run_browser_task():
             """Async function to run the browser agent."""
             # Initialize the LLM with vision capabilities
-            llm = ChatOllama(
-                model=self.model,
-                temperature=0.0,  # Deterministic for browsing
-            )
+            # NOTE: browser_use ChatOllama has different params than langchain version
+            llm = ChatOllama(model=self.model)
             
-            # Initialize the browser
-            browser_config = BrowserConfig(headless=self.headless)
-            browser = Browser(config=browser_config)
+            # Initialize the browser (headless parameter passed directly)
+            browser = Browser(headless=self.headless)
             
             try:
                 # Create and run the agent
@@ -120,13 +117,13 @@ class BrowserTool(BaseTool):
                 result = await agent.run()
                 
                 # Extract the final result
-                if hasattr(result, 'final_result'):
+                if hasattr(result, 'final_result') and result.final_result:
                     final_result = result.final_result
                 elif hasattr(result, 'history') and result.history:
                     # Get the last meaningful result from history
                     final_result = str(result.history[-1]) if result.history else "Task completed"
                 else:
-                    final_result = str(result)
+                    final_result = str(result) if result else "Task completed"
                 
                 steps = len(result.history) if hasattr(result, 'history') else 0
                 
@@ -137,8 +134,11 @@ class BrowserTool(BaseTool):
                 }
                 
             finally:
-                # Clean up browser
-                await browser.close()
+                # Clean up browser (use stop() for BrowserSession)
+                try:
+                    await browser.stop()
+                except Exception:
+                    pass  # Ignore cleanup errors
         
         # Run the async task in a new event loop
         try:
