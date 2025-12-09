@@ -94,12 +94,18 @@ Given the user query, analyze their intent and output a JSON object with:
 - "tool_name": String that EXACTLY matches one of the available tool names above
 - "parameters": Dictionary of arguments for that tool
 
-CRITICAL - VISUAL/SCREEN QUERIES:
-For ANY request about seeing, viewing, analyzing, or describing the screen, images, or visual content:
+CRITICAL - VISUAL/SCREEN QUERIES (looking at the current screen):
+For requests about seeing, viewing, or describing what's on the CURRENT SCREEN:
 - ALWAYS use "visual_query" - NEVER use "analyze_image" or "capture_screen" directly
-- Examples: "what's on my screen?", "describe this", "read the error", "what do you see?", "analyze the image", "look at firefox"
-- Output: {{"tool_name": "visual_query", "parameters": {{"query": "the user's full question about what they want to know"}}}}
-- The visual_query handler will automatically capture the screen and analyze it
+- Examples: "what's on my screen?", "describe this", "read the error", "what do you see?", "look at my screen"
+- Output: {{"tool_name": "visual_query", "parameters": {{"query": "the user's question about the screen"}}}}
+
+CRITICAL - WEB BROWSING (searching the internet):
+For requests to search online, find information on the web, check prices, or visit websites:
+- Use "browse_web" for any online/internet task
+- Examples: "search for Python tutorials", "find the price of iPhone", "go to google.com", "look up weather in New York", "search Amazon for shoes"
+- Output: {{"tool_name": "browse_web", "parameters": {{"task_description": "the user's full request"}}}}
+- NOTE: "look at my screen" = visual_query, but "look up shoes online" = browse_web
 
 If no tool matches the query (e.g., general questions, chitchat), use:
 - "tool_name": "general_chat"
@@ -140,6 +146,9 @@ EXAMPLES:
 - "Read data.xlsx range A1:B10" → {{"tool_name": "read_excel", "parameters": {{"filename": "data.xlsx", "range": "A1:B10"}}}}
 - "What's on my screen?" → {{"tool_name": "visual_query", "parameters": {{"query": "Describe what you see on the screen"}}}}
 - "Read the error message" → {{"tool_name": "visual_query", "parameters": {{"query": "Read and explain any error messages visible"}}}}
+- "Search Google for Python tutorials" → {{"tool_name": "browse_web", "parameters": {{"task_description": "Search Google for Python tutorials"}}}}
+- "Find the price of iPhone 15" → {{"tool_name": "browse_web", "parameters": {{"task_description": "Find the price of iPhone 15"}}}}
+- "Look up weather in New York" → {{"tool_name": "browse_web", "parameters": {{"task_description": "Look up weather in New York"}}}}
 - "What's the weather?" → {{"tool_name": "general_chat", "parameters": {{"message": "What's the weather?"}}}}
 
 Output ONLY the JSON object, no explanations or markdown."""

@@ -44,6 +44,9 @@ from app.services.ai.vision import VisionTool
 # AI tools
 from app.services.ai.chat import ChatTool
 
+# Web tools
+from app.services.web.browser import BrowserTool
+
 # Voice I/O
 from app.services.voice.speaker import TextToSpeech
 from app.services.voice.listener import VoiceListener
@@ -138,6 +141,9 @@ class SovereignAgent:
         # Register AI tools
         self.registry.register_tool(ChatTool())
         
+        # Register Web tools
+        self.registry.register_tool(BrowserTool())
+        
         if self.debug:
             print("[DEBUG] Registry initialized:")
             print(self.registry.list_tools())
@@ -202,6 +208,10 @@ class SovereignAgent:
         # Step 3.5: Handle visual queries (screen analysis)
         if tool_name == "visual_query":
             return self._handle_visual_query(parameters)
+        
+        # Step 3.6: Handle web browsing
+        if tool_name == "browse_web":
+            return self._handle_web_browse(parameters)
         
         # Step 4: Execute the tool
         tool = self.registry.get_tool(tool_name)
@@ -298,6 +308,48 @@ class SovereignAgent:
             return vision_result.data["response"]
         else:
             return f"I couldn't analyze the image: {vision_result.error}"
+    
+    def _handle_web_browse(self, parameters: dict) -> str:
+        """
+        Handle web browsing requests.
+        
+        Uses the BrowserTool for autonomous web automation.
+        
+        Args:
+            parameters: Dict with 'task_description' key.
+            
+        Returns:
+            Result from web browsing task.
+        """
+        task_description = parameters.get("task_description", "Search the web")
+        
+        if self.debug:
+            print(f"[DEBUG] Web browse - task: {task_description}")
+        
+        # Get the browser tool
+        browser_tool = self.registry.get_tool("browse_web")
+        
+        if browser_tool is None:
+            return "Web browser tool not available."
+        
+        # Notify user this will take time
+        if self.debug:
+            print("[DEBUG] Starting browser automation (this may take a while)...")
+        
+        # Execute the browser task
+        result = browser_tool.execute(task_description=task_description)
+        
+        if result.success:
+            response = result.data.get("result", "Task completed but no result returned.")
+            steps = result.data.get("steps", 0)
+            
+            if self.debug:
+                print(f"[DEBUG] Browser completed in {steps} steps")
+            
+            return response
+        else:
+            error = result.error or "Unknown error"
+            return f"Web browsing failed: {error}"
 
     
     def _format_success(self, tool_name: str, data: dict) -> str:
